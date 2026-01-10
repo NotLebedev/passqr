@@ -1,16 +1,51 @@
-use printpdf::{Mm, Point, Pt};
+use printpdf::{Mm, Point, Pt, RawImage, XObjectTransform};
 
+/// Target dots per inch for all images
 pub const DPI: f32 = 300.0;
+/// Target dots per mm for all images
 pub const DPM: f32 = DPI / 25.4;
+/// Dot size for all images
 pub const MPD: f32 = 1.0 / DPM;
-
-pub const BIG_QR_SIZE: Mm = Mm(130.0);
 
 pub mod page {
     use super::*;
 
     pub const WIDTH: Mm = Mm(210.0);
     pub const HEIGHT: Mm = Mm(297.0);
+
+    /// Equal margins on all sides of page.
+    pub const MARGINS: Mm = Mm(20.0);
+
+    pub const WORKABLE_WIDTH: Mm = Mm(WIDTH.0 - MARGINS.0 * 2.0);
+    pub const WORKABLE_HEIGHT: Mm = Mm(HEIGHT.0 - MARGINS.0 * 2.0);
+}
+
+pub mod qr_single {
+    //! Page with one single qr code in the middle that
+    //! encodes all data together as a toml string
+
+    use super::*;
+
+    pub const QR_SIZE: Mm = Mm(page::WORKABLE_WIDTH.0.min(page::WORKABLE_HEIGHT.0));
+
+    pub fn layout_qr(qr_actual_size: MmPoint) -> MmPoint {
+        let dest_rect_vertex = MmPoint {
+            x: page::MARGINS,
+            y: page::MARGINS,
+        };
+        let dest_rect_size = MmPoint {
+            x: page::WORKABLE_WIDTH,
+            y: page::WORKABLE_HEIGHT,
+        };
+
+        center_in(
+            MmRect {
+                vertex: dest_rect_vertex,
+                size: dest_rect_size,
+            },
+            qr_actual_size,
+        )
+    }
 }
 
 pub mod qr_multi {
@@ -23,17 +58,11 @@ pub mod qr_multi {
 
     use super::*;
 
-    /// Equal margins on all sides of page.
-    const PAGE_MARGINS: Mm = Mm(20.0);
-
-    const WORKABLE_WIDTH: Mm = Mm(page::WIDTH.0 - PAGE_MARGINS.0 * 2.0);
-    const WORKABLE_HEIGHT: Mm = Mm(page::HEIGHT.0 - PAGE_MARGINS.0 * 2.0);
-
     pub const FONT_SIZE: Pt = Pt(10.0);
     const TEXT_BOX_HEIGHT: Mm = Mm(5.0);
 
-    pub const QR_BOX_WIDTH: Mm = Mm(WORKABLE_WIDTH.0 / 2.0);
-    pub const QR_BOX_HEIGHT: Mm = Mm(WORKABLE_HEIGHT.0 / 4.0 - TEXT_BOX_HEIGHT.0);
+    pub const QR_BOX_WIDTH: Mm = Mm(page::WORKABLE_WIDTH.0 / 2.0);
+    pub const QR_BOX_HEIGHT: Mm = Mm(page::WORKABLE_HEIGHT.0 / 4.0 - TEXT_BOX_HEIGHT.0);
     pub const QR_SIZE: Mm = Mm(QR_BOX_HEIGHT.0.min(QR_BOX_WIDTH.0));
 
     /// Calculate place of text in given grid space (indexed from 0).
@@ -42,15 +71,15 @@ pub mod qr_multi {
     /// [`printpdf::shape`] is used. Note that [`printpdf::shape::ShapedText::get_ops`]
     /// uses TOP left corner, unlike rest of operations.
     pub fn layout_text(column: u32, row: u32) -> MmPoint {
-        let x = PAGE_MARGINS + WORKABLE_WIDTH / 2.0 * column as f32;
+        let x = page::MARGINS + page::WORKABLE_WIDTH / 2.0 * column as f32;
 
         // Here we need to add FONT_SIZE to alignment offset because
         // text shaping expects origin to be on top left, not bottom like
         // the rest of ops.
         let text_vertical_align_offset =
             pt_to_mm(FONT_SIZE) + (TEXT_BOX_HEIGHT - pt_to_mm(FONT_SIZE)) / 2.0;
-        let y = PAGE_MARGINS
-            + WORKABLE_HEIGHT / 4.0 * row as f32
+        let y = page::MARGINS
+            + page::WORKABLE_HEIGHT / 4.0 * row as f32
             + QR_BOX_HEIGHT
             + text_vertical_align_offset;
 
@@ -62,8 +91,8 @@ pub mod qr_multi {
     /// Centers qr code inside reserve [`QR_BOX_WIDTH`] x [`QR_BOX_HEIGHT`] box
     pub fn layout_qr(column: u32, row: u32, qr_actual_size: MmPoint) -> MmPoint {
         let dest_rect_vertex = MmPoint {
-            x: PAGE_MARGINS + WORKABLE_WIDTH / 2.0 * column as f32,
-            y: PAGE_MARGINS + WORKABLE_HEIGHT / 4.0 * row as f32,
+            x: page::MARGINS + page::WORKABLE_WIDTH / 2.0 * column as f32,
+            y: page::MARGINS + page::WORKABLE_HEIGHT / 4.0 * row as f32,
         };
         let dest_rect_size = MmPoint {
             x: QR_BOX_WIDTH,
@@ -104,8 +133,27 @@ fn center_in(destination: MmRect, target_size: MmPoint) -> MmPoint {
     }
 }
 
+impl MmPoint {
+    pub fn image_size(image: &RawImage) -> MmPoint {
+        MmPoint {
+            x: Mm(image.width as f32 * MPD),
+            y: Mm(image.height as f32 * MPD),
+        }
+    }
+}
+
 impl From<MmPoint> for Point {
     fn from(value: MmPoint) -> Self {
         Self::new(value.x, value.y)
+    }
+}
+
+impl From<MmPoint> for XObjectTransform {
+    fn from(value: MmPoint) -> Self {
+        XObjectTransform {
+            translate_x: Some(value.x.into_pt()),
+            translate_y: Some(value.y.into_pt()),
+            ..Default::default()
+        }
     }
 }

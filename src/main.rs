@@ -1,7 +1,7 @@
 use ::image::Luma;
 use printpdf::{
     BuiltinFont, FontId, Mm, Op, ParsedFont, PdfDocument, PdfPage, PdfSaveOptions, RawImage,
-    RawImageData, TextAlign, TextShapingOptions, XObjectTransform,
+    RawImageData, TextAlign, TextShapingOptions,
 };
 use qrcode::QrCode;
 
@@ -53,21 +53,13 @@ fn page_8_qrs<'el>(
 
             let qr_image = generate_qr_code(value, layout::qr_multi::QR_SIZE);
 
-            let qr_actual_size = MmPoint {
-                x: Mm(qr_image.width as f32 * layout::MPD),
-                y: Mm(qr_image.height as f32 * layout::MPD),
-            };
+            let qr_actual_size = MmPoint::image_size(&qr_image);
             let qr_image_layout = layout::qr_multi::layout_qr(i, j, qr_actual_size);
 
             let image_id = doc.add_image(&qr_image);
-            let transform = XObjectTransform {
-                translate_x: Some(qr_image_layout.x.into_pt()),
-                translate_y: Some(qr_image_layout.y.into_pt()),
-                ..Default::default()
-            };
             ops.push(Op::UseXobject {
                 id: image_id,
-                transform,
+                transform: qr_image_layout.into(),
             });
 
             let text_layout = layout::qr_multi::layout_text(i, j);
@@ -90,15 +82,14 @@ fn page_8_qrs<'el>(
 fn full_qr_page(doc: &mut PdfDocument, data: &str) -> PdfPage {
     let mut ops = Vec::new();
 
-    let qr_image = generate_qr_code(data, layout::BIG_QR_SIZE);
+    let qr_image = generate_qr_code(data, layout::qr_single::QR_SIZE);
     let image_id = doc.add_image(&qr_image);
+
+    let qr_actual_size = MmPoint::image_size(&qr_image);
+    let layout = layout::qr_single::layout_qr(qr_actual_size);
     ops.push(Op::UseXobject {
         id: image_id,
-        transform: XObjectTransform {
-            translate_x: Some(((layout::page::WIDTH - layout::BIG_QR_SIZE) / 2.0).into_pt()),
-            translate_y: Some(((layout::page::HEIGHT - layout::BIG_QR_SIZE) / 2.0).into_pt()),
-            ..Default::default()
-        },
+        transform: layout.into(),
     });
 
     PdfPage::new(layout::page::WIDTH, layout::page::HEIGHT, ops)
