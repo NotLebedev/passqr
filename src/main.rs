@@ -5,6 +5,8 @@ use printpdf::{
 };
 use qrcode::QrCode;
 
+use crate::layout::MmPoint;
+
 mod input;
 mod layout;
 
@@ -43,17 +45,18 @@ fn page_8_qrs<'el>(
                 break 'all;
             };
 
-            let origin_x =
-                layout::qr_multi::OFFSET_X * ((i + 1) as f32) - layout::qr_multi::QR_SIZE / 2.0;
-            let origin_y = layout::qr_multi::OFFSET_Y * ((j + 1) as f32)
-                - layout::qr_multi::QR_SIZE / 2.0
-                - into_mm(layout::qr_multi::FONT_SIZE) * 2.0;
-
             let qr_image = generate_qr_code(value, layout::qr_multi::QR_SIZE);
+
+            let qr_actual_size = MmPoint {
+                x: Mm(qr_image.width as f32 * layout::MPD),
+                y: Mm(qr_image.height as f32 * layout::MPD),
+            };
+            let qr_image_layout = layout::qr_multi::layout_qr(i, j, qr_actual_size);
+
             let image_id = doc.add_image(&qr_image);
             let transform = XObjectTransform {
-                translate_x: Some(origin_x.into_pt()),
-                translate_y: Some(origin_y.into_pt()),
+                translate_x: Some(qr_image_layout.x.into_pt()),
+                translate_y: Some(qr_image_layout.y.into_pt()),
                 ..Default::default()
             };
             ops.push(Op::UseXobject {
@@ -61,13 +64,12 @@ fn page_8_qrs<'el>(
                 transform,
             });
 
-            let text_origin_x = origin_x;
-            let text_origin_y = origin_y + layout::qr_multi::QR_SIZE;
+            let text_layout = layout::qr_multi::layout_text(i, j);
 
             write_text(
                 &mut ops,
                 key.clone(),
-                Point::new(text_origin_x, text_origin_y),
+                Point::new(text_layout.x, text_layout.y),
             );
         }
     }
@@ -138,8 +140,4 @@ fn generate_qr_code(content: &str, size: Mm) -> RawImage {
         data_format: printpdf::RawImageFormat::R8,
         tag: Vec::new(),
     }
-}
-
-fn into_mm(pt: Pt) -> Mm {
-    Mm(pt.0 * 0.35277)
 }
