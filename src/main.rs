@@ -1,7 +1,7 @@
 use ::image::Luma;
 use printpdf::{
-    BuiltinFont, Color, Mm, Op, PdfDocument, PdfPage, PdfSaveOptions, Point, Pt, RawImage,
-    RawImageData, Rgb, TextItem, XObjectTransform,
+    BuiltinFont, FontId, Mm, Op, ParsedFont, PdfDocument, PdfPage, PdfSaveOptions, RawImage,
+    RawImageData, TextAlign, TextShapingOptions, XObjectTransform,
 };
 use qrcode::QrCode;
 
@@ -15,12 +15,17 @@ fn main() {
     let toml_string = toml::to_string(&data).expect("Failed to serialize data");
 
     let mut doc = PdfDocument::new("passqr");
+
+    // Workaround for https://github.com/fschutt/printpdf/issues/238
+    let font_bytes = BuiltinFont::Helvetica.get_subset_font().bytes;
+    let font_id = doc.add_font(&ParsedFont::from_bytes(&font_bytes, 0, &mut Vec::new()).unwrap());
+
     let mut pages = Vec::new();
 
     let mut data_iter = data.iter().peekable();
 
     while data_iter.peek().is_some() {
-        pages.push(page_8_qrs(&mut doc, &mut data_iter));
+        pages.push(page_8_qrs(&mut doc, &mut data_iter, &font_id));
     }
 
     pages.push(full_qr_page(&mut doc, &toml_string));
@@ -36,6 +41,7 @@ fn main() {
 fn page_8_qrs<'el>(
     doc: &mut PdfDocument,
     data: &mut impl Iterator<Item = (&'el String, &'el String)>,
+    font: &FontId,
 ) -> PdfPage {
     let mut ops = Vec::new();
 
@@ -66,11 +72,15 @@ fn page_8_qrs<'el>(
 
             let text_layout = layout::qr_multi::layout_text(i, j);
 
-            write_text(
-                &mut ops,
-                key.clone(),
-                Point::new(text_layout.x, text_layout.y),
-            );
+            let text_shape = TextShapingOptions {
+                font_size: layout::qr_multi::FONT_SIZE,
+                max_width: Some(layout::qr_multi::QR_BOX_WIDTH.into_pt()),
+                align: TextAlign::Center,
+                ..Default::default()
+            };
+
+            let text = doc.shape_text(&key, font, &text_shape).unwrap();
+            ops.extend(text.get_ops(text_layout.into()));
         }
     }
 
@@ -92,37 +102,6 @@ fn full_qr_page(doc: &mut PdfDocument, data: &str) -> PdfPage {
     });
 
     PdfPage::new(layout::page::WIDTH, layout::page::HEIGHT, ops)
-}
-
-fn write_text(ops: &mut Vec<Op>, text: String, pos: Point) {
-    ops.extend([
-        Op::SaveGraphicsState,
-        Op::StartTextSection,
-        Op::SetTextCursor { pos },
-        Op::SetFontSizeBuiltinFont {
-            font: BuiltinFont::Helvetica,
-            size: layout::qr_multi::FONT_SIZE,
-        },
-        Op::SetLineHeight {
-            lh: layout::qr_multi::FONT_SIZE,
-        },
-        // Set text color to blue
-        Op::SetFillColor {
-            col: Color::Rgb(Rgb {
-                r: 0.0,
-                g: 0.0,
-                b: 0.0,
-                icc_profile: None,
-            }),
-        },
-        // Write text with the built-in font
-        Op::WriteTextBuiltinFont {
-            items: vec![TextItem::Text(text)],
-            font: BuiltinFont::Helvetica,
-        },
-        Op::EndTextSection,
-        Op::RestoreGraphicsState,
-    ]);
 }
 
 fn generate_qr_code(content: &str, size: Mm) -> RawImage {

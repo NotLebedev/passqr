@@ -1,4 +1,4 @@
-use printpdf::{Mm, Pt};
+use printpdf::{Mm, Point, Pt};
 
 pub const DPI: f32 = 300.0;
 pub const DPM: f32 = DPI / 25.4;
@@ -39,11 +39,16 @@ pub mod qr_multi {
     /// Calculate place of text in given grid space (indexed from 0).
     ///
     /// Text is aligned vertically, but for horizontal alignment (centering)
-    /// [`printpdf::shape`] is used.
+    /// [`printpdf::shape`] is used. Note that [`printpdf::shape::ShapedText::get_ops`]
+    /// uses TOP left corner, unlike rest of operations.
     pub fn layout_text(column: u32, row: u32) -> MmPoint {
         let x = PAGE_MARGINS + WORKABLE_WIDTH / 2.0 * column as f32;
 
-        let text_vertical_align_offset = (TEXT_BOX_HEIGHT - pt_to_mm(FONT_SIZE)) / 2.0;
+        // Here we need to add FONT_SIZE to alignment offset because
+        // text shaping expects origin to be on top left, not bottom like
+        // the rest of ops.
+        let text_vertical_align_offset =
+            pt_to_mm(FONT_SIZE) + (TEXT_BOX_HEIGHT - pt_to_mm(FONT_SIZE)) / 2.0;
         let y = PAGE_MARGINS
             + WORKABLE_HEIGHT / 4.0 * row as f32
             + QR_BOX_HEIGHT
@@ -96,5 +101,11 @@ fn center_in(destination: MmRect, target_size: MmPoint) -> MmPoint {
     MmPoint {
         x: destination.vertex.x + (destination.size.x - target_size.x) / 2.0,
         y: destination.vertex.y + (destination.size.y - target_size.y) / 2.0,
+    }
+}
+
+impl From<MmPoint> for Point {
+    fn from(value: MmPoint) -> Self {
+        Self::new(value.x, value.y)
     }
 }
