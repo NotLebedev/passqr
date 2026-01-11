@@ -10,6 +10,7 @@ use serde::de::MapAccess;
 use serde::de::Visitor;
 
 #[derive(Debug)]
+#[cfg_attr(test, derive(PartialEq))]
 pub struct Ordermap(Vec<(String, String)>);
 
 pub fn load_input() -> Ordermap {
@@ -80,5 +81,44 @@ impl Serialize for Ordermap {
         S: serde::Serializer,
     {
         serializer.collect_map(self.iter())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_ordermap_serialization_preserves_order() {
+        let data = vec![
+            ("key1".to_string(), "value1".to_string()),
+            ("key3".to_string(), "value3".to_string()),
+            ("key2".to_string(), "value2".to_string()),
+        ];
+        let ordermap = Ordermap::new(data);
+
+        let actual = toml::to_string(&ordermap).expect("Failed to serialize");
+
+        let expected = r#"key1 = "value1"
+key3 = "value3"
+key2 = "value2"
+"#;
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_ordermap_deserialization_preserves_order() {
+        let toml_str = r#"key1 = "value1"
+key3 = "value3"
+key2 = "value2"
+"#;
+        let actual: Ordermap = toml::from_str(toml_str).expect("Failed to deserialize");
+
+        let expected = Ordermap::new(vec![
+            ("key1".to_string(), "value1".to_string()),
+            ("key3".to_string(), "value3".to_string()),
+            ("key2".to_string(), "value2".to_string()),
+        ]);
+        assert_eq!(expected, actual);
     }
 }
