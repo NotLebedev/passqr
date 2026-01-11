@@ -2,12 +2,14 @@ use std::cmp::min;
 use std::env;
 use std::fmt;
 use std::fs;
+use std::slice::Chunks;
 
 use serde::Deserialize;
 use serde::Serialize;
 use serde::de::MapAccess;
 use serde::de::Visitor;
 
+#[derive(Debug)]
 pub struct Ordermap(Vec<(String, String)>);
 
 pub fn load_input() -> Ordermap {
@@ -26,8 +28,16 @@ pub fn load_input() -> Ordermap {
 }
 
 impl Ordermap {
+    pub fn new(data: Vec<(String, String)>) -> Self {
+        Self(data)
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = (&String, &String)> {
         self.0.iter().map(|x| (&x.0, &x.1))
+    }
+
+    pub fn chunks(&self, chunk_size: usize) -> Chunks<'_, (String, String)> {
+        self.0.chunks(chunk_size)
     }
 }
 

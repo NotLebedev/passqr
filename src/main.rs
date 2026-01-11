@@ -5,14 +5,13 @@ use printpdf::{
 };
 use qrcode::QrCode;
 
-use crate::layout::MmPoint;
+use crate::{input::Ordermap, layout::MmPoint};
 
 mod input;
 mod layout;
 
 fn main() {
     let data = input::load_input();
-    let toml_string = toml::to_string(&data).expect("Failed to serialize data");
 
     let mut doc = PdfDocument::new("passqr");
 
@@ -22,13 +21,15 @@ fn main() {
 
     let mut pages = Vec::new();
 
-    let mut data_iter = data.iter().peekable();
+    let qrs_per_page = layout::qr_multi::GRID_HEIGHT * layout::qr_multi::GRID_WIDTH;
 
-    while data_iter.peek().is_some() {
-        pages.push(page_8_qrs(&mut doc, &mut data_iter, &font_id));
+    for chunk in data.chunks(qrs_per_page as usize) {
+        pages.push(page_8_qrs(&mut doc, chunk.iter(), &font_id));
+
+        let toml_string = toml::to_string(&Ordermap::new(chunk.to_vec()))
+            .expect("Failed to serialize full page data");
+        pages.push(full_qr_page(&mut doc, &toml_string));
     }
-
-    pages.push(full_qr_page(&mut doc, &toml_string));
 
     let pdf_bytes = doc
         .with_pages(pages)
@@ -40,7 +41,7 @@ fn main() {
 
 fn page_8_qrs<'el>(
     doc: &mut PdfDocument,
-    data: &mut impl Iterator<Item = (&'el String, &'el String)>,
+    mut data: impl Iterator<Item = &'el (String, String)>,
     font: &FontId,
 ) -> PdfPage {
     let mut ops = Vec::new();
