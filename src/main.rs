@@ -116,8 +116,7 @@ fn full_qr_page(doc: &mut PdfDocument, data: &str) -> PdfPage {
 }
 
 fn generate_qr_code(content: &str, size: Mm) -> RawImage {
-    let code = QrCode::with_error_correction_level(content, qrcode::EcLevel::L)
-        .expect("Failed to create QR code");
+    let code = QrCode::new(content).expect("Failed to create QR code");
 
     let size = (size.0 * layout::DPM) as u32;
     let image = code.render::<Luma<u8>>().max_dimensions(size, size).build();
