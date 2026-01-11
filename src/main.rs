@@ -1,3 +1,5 @@
+use std::{env, ffi::OsString};
+
 use ::image::Luma;
 use printpdf::{
     FontId, Mm, Op, ParsedFont, PdfDocument, PdfPage, PdfSaveOptions, RawImage, RawImageData,
@@ -13,7 +15,8 @@ mod layout;
 const FONT: &[u8] = include_bytes!("../assets/font/JetBrainsMono-Regular.ttf");
 
 fn main() {
-    let data = input::load_input();
+    let filename = parse_args();
+    let data = input::load_input(&filename);
 
     let mut doc = PdfDocument::new("passqr");
 
@@ -35,6 +38,21 @@ fn main() {
         .with_pages(pages)
         .save(&PdfSaveOptions::default(), &mut Vec::new());
     std::fs::write("output.pdf", pdf_bytes).unwrap();
+}
+
+fn parse_args() -> OsString {
+    let args: Vec<OsString> = env::args_os().collect();
+    let [_, filename] = args.as_slice() else {
+        eprintln!(
+            "Usage: {} <input_file.toml>",
+            env::current_exe()
+                .map(|exe| exe.to_string_lossy().to_string())
+                .unwrap_or("passqr".into())
+        );
+        std::process::exit(1);
+    };
+
+    filename.clone()
 }
 
 fn page_8_qrs<'el>(

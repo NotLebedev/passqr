@@ -1,5 +1,5 @@
 use std::cmp::min;
-use std::env;
+use std::ffi::OsStr;
 use std::fmt;
 use std::fs;
 use std::slice::Chunks;
@@ -13,14 +13,7 @@ use serde::de::Visitor;
 #[cfg_attr(test, derive(PartialEq))]
 pub struct Ordermap(Vec<(String, String)>);
 
-pub fn load_input() -> Ordermap {
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
-        eprintln!("Usage: {} <input_file.toml>", args[0]);
-        std::process::exit(1);
-    }
-
-    let filename = &args[1];
+pub fn load_input(filename: &OsStr) -> Ordermap {
     let contents = fs::read_to_string(filename).expect("Failed to read input file");
 
     let data: Ordermap = toml::from_str(&contents).expect("Failed to parse TOML from input file");
