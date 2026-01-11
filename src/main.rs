@@ -1,4 +1,7 @@
-use std::{env, ffi::OsString};
+use std::{
+    env,
+    ffi::{OsStr, OsString},
+};
 
 use ::image::Luma;
 use printpdf::{
@@ -15,7 +18,10 @@ mod layout;
 const FONT: &[u8] = include_bytes!("../assets/font/JetBrainsMono-Regular.ttf");
 
 fn main() {
-    let filename = parse_args();
+    process(&parse_args());
+}
+
+fn process(filename: &OsStr) {
     let data = input::load_input(&filename);
 
     let mut doc = PdfDocument::new("passqr");
@@ -128,5 +134,30 @@ fn generate_qr_code(content: &str, size: Mm) -> RawImage {
         height: real_height as usize,
         data_format: printpdf::RawImageFormat::R8,
         tag: Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::ffi::OsString;
+
+    use crate::process;
+
+    #[test]
+    fn test_e2e_smoke() {
+        let output_file = std::path::PathBuf::from("output.pdf");
+        if output_file.exists() {
+            std::fs::remove_file(&output_file).unwrap();
+        }
+
+        process(&OsString::from("assets/test/credentials.toml"));
+        assert!(output_file.exists());
+
+        let metadata = std::fs::metadata(&output_file).unwrap();
+        assert!(metadata.is_file());
+        // Smallest valid pdf is 312 bytes.
+        assert!(metadata.len() > 312);
+
+        std::fs::remove_file(&output_file).unwrap();
     }
 }
