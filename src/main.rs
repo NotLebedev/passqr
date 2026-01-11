@@ -45,8 +45,11 @@ fn page_8_qrs<'el>(
 ) -> PdfPage {
     let mut ops = Vec::new();
 
-    for j in (0..=3).rev() {
-        'all: for i in 0..=1 {
+    // Iterating over rows first, column second, reversed column order
+    // to provide left to right, top to bottom order on partially
+    // filled pages
+    'all: for j in (0..layout::qr_multi::GRID_HEIGHT).rev() {
+        for i in 0..layout::qr_multi::GRID_WIDTH {
             let Some((key, value)) = data.next() else {
                 break 'all;
             };
@@ -66,7 +69,7 @@ fn page_8_qrs<'el>(
 
             let text_shape = TextShapingOptions {
                 font_size: layout::qr_multi::FONT_SIZE,
-                max_width: Some(layout::qr_multi::QR_BOX_WIDTH.into_pt()),
+                max_width: Some(layout::qr_multi::BOX_WIDTH.into_pt()),
                 align: TextAlign::Center,
                 ..Default::default()
             };

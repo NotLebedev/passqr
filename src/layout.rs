@@ -49,21 +49,63 @@ pub mod qr_single {
 }
 
 pub mod qr_multi {
-    //! Page with 4x2 grid of qr codes for individual entries.
+    //! Page with a grid of qr codes for individual entries.
     //!
-    //! Each entry contains a text with entry name and
-    //! qr code with entry value. Page has [`PAGE_MARGINS`] on
-    //! all sides, but no margins between entries, because each
-    //! qr code has its own quite zone embedded into image.
+    //! Page has [`page::MARGINS`] on all sides, but no margins
+    //! between entries, because each qr code has its own quite
+    //! zone embedded into image.
+    //!
+    //! ```
+    //! +--------------------+ -
+    //! |                    | page::MARGINS
+    //! |  +--------------+  | -
+    //! |  |    |    |    |  |
+    //! |  |    |    |    |  |
+    //! |  +----+----+----+  |
+    //! |  |    |    |    |  |
+    //! |  |    |    |    |  |
+    //! |  +--------------+  |
+    //! |  |    |    |    |  |
+    //! |  |    |    |    |  |
+    //! |  +--------------+  |
+    //! |                    |
+    //! +--------------------+
+    //! ```
+    //!
+    //! Each grid cell contains a text with entry name and qr code with
+    //! entry value. Each cell in grid is  [`BOX_WIDTH`] x [`BOX_HEIGHT`].
+    //! On top [`TEXT_BOX_HEIGHT`] is reserved for label and the rest is
+    //! allocated for qr code.
+    //!
+    //! ```
+    //! +--------------------+ -
+    //! |     Label here     | TEXT_BOX_HEIGHT
+    //! +--------------------+ -
+    //! |                    |
+    //! |   ███   ███ █ ██   |
+    //! |   █ █    ███ █ █   |
+    //! |   ███  █ █ ███ █   | QR_BOX_HEIGHT
+    //! |         ███ █ ██   |
+    //! |   ██ ██ █ █ ██ █   |
+    //! |   ██ ██ █ █ ██ █   |
+    //! |                    |
+    //! +--------------------+ -
+    //! |     BOX_WIDTH      |
+    //! ```
 
     use super::*;
+
+    pub const GRID_WIDTH: u32 = 3;
+    pub const GRID_HEIGHT: u32 = 4;
 
     pub const FONT_SIZE: Pt = Pt(10.0);
     const TEXT_BOX_HEIGHT: Mm = Mm(5.0);
 
-    pub const QR_BOX_WIDTH: Mm = Mm(page::WORKABLE_WIDTH.0 / 2.0);
-    pub const QR_BOX_HEIGHT: Mm = Mm(page::WORKABLE_HEIGHT.0 / 4.0 - TEXT_BOX_HEIGHT.0);
-    pub const QR_SIZE: Mm = Mm(QR_BOX_HEIGHT.0.min(QR_BOX_WIDTH.0));
+    pub const BOX_WIDTH: Mm = Mm(page::WORKABLE_WIDTH.0 / GRID_WIDTH as f32);
+    pub const BOX_HEIGHT: Mm = Mm(page::WORKABLE_HEIGHT.0 / GRID_HEIGHT as f32);
+
+    pub const QR_BOX_HEIGHT: Mm = Mm(BOX_HEIGHT.0 - TEXT_BOX_HEIGHT.0);
+    pub const QR_SIZE: Mm = Mm(QR_BOX_HEIGHT.0.min(BOX_WIDTH.0));
 
     /// Calculate place of text in given grid space (indexed from 0).
     ///
@@ -71,31 +113,29 @@ pub mod qr_multi {
     /// [`printpdf::shape`] is used. Note that [`printpdf::shape::ShapedText::get_ops`]
     /// uses TOP left corner, unlike rest of operations.
     pub fn layout_text(column: u32, row: u32) -> MmPoint {
-        let x = page::MARGINS + page::WORKABLE_WIDTH / 2.0 * column as f32;
+        let x = page::MARGINS + BOX_WIDTH * column as f32;
 
         // Here we need to add FONT_SIZE to alignment offset because
         // text shaping expects origin to be on top left, not bottom like
         // the rest of ops.
         let text_vertical_align_offset =
             pt_to_mm(FONT_SIZE) + (TEXT_BOX_HEIGHT - pt_to_mm(FONT_SIZE)) / 2.0;
-        let y = page::MARGINS
-            + page::WORKABLE_HEIGHT / 4.0 * row as f32
-            + QR_BOX_HEIGHT
-            + text_vertical_align_offset;
+        let y =
+            page::MARGINS + BOX_HEIGHT * row as f32 + QR_BOX_HEIGHT + text_vertical_align_offset;
 
         MmPoint { x, y }
     }
 
     /// Calculate place of qr code image in given grid space (indexed from 0).
     ///
-    /// Centers qr code inside reserve [`QR_BOX_WIDTH`] x [`QR_BOX_HEIGHT`] box
+    /// Centers qr code inside reserve [`BOX_WIDTH`] x [`QR_BOX_HEIGHT`] box
     pub fn layout_qr(column: u32, row: u32, qr_actual_size: MmPoint) -> MmPoint {
         let dest_rect_vertex = MmPoint {
-            x: page::MARGINS + page::WORKABLE_WIDTH / 2.0 * column as f32,
-            y: page::MARGINS + page::WORKABLE_HEIGHT / 4.0 * row as f32,
+            x: page::MARGINS + BOX_WIDTH * column as f32,
+            y: page::MARGINS + BOX_HEIGHT * row as f32,
         };
         let dest_rect_size = MmPoint {
-            x: QR_BOX_WIDTH,
+            x: BOX_WIDTH,
             y: QR_BOX_HEIGHT,
         };
 
