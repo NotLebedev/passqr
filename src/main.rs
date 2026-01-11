@@ -1,7 +1,7 @@
 use ::image::Luma;
 use printpdf::{
-    BuiltinFont, FontId, Mm, Op, ParsedFont, PdfDocument, PdfPage, PdfSaveOptions, RawImage,
-    RawImageData, TextAlign, TextShapingOptions,
+    FontId, Mm, Op, ParsedFont, PdfDocument, PdfPage, PdfSaveOptions, RawImage, RawImageData,
+    TextAlign, TextShapingOptions,
 };
 use qrcode::QrCode;
 
@@ -10,14 +10,14 @@ use crate::{input::Ordermap, layout::MmPoint};
 mod input;
 mod layout;
 
+const FONT: &[u8] = include_bytes!("../assets/JetBrainsMono-Regular.ttf");
+
 fn main() {
     let data = input::load_input();
 
     let mut doc = PdfDocument::new("passqr");
 
-    // Workaround for https://github.com/fschutt/printpdf/issues/238
-    let font_bytes = BuiltinFont::Helvetica.get_subset_font().bytes;
-    let font_id = doc.add_font(&ParsedFont::from_bytes(&font_bytes, 0, &mut Vec::new()).unwrap());
+    let font_id = doc.add_font(&ParsedFont::from_bytes(&FONT, 0, &mut Vec::new()).unwrap());
 
     let mut pages = Vec::new();
 
@@ -34,9 +34,7 @@ fn main() {
     let pdf_bytes = doc
         .with_pages(pages)
         .save(&PdfSaveOptions::default(), &mut Vec::new());
-    std::fs::write("./output.pdf", pdf_bytes).unwrap();
-
-    println!("Generated output.pdf");
+    std::fs::write("output.pdf", pdf_bytes).unwrap();
 }
 
 fn page_8_qrs<'el>(
