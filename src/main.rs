@@ -10,7 +10,7 @@ use crate::{input::Ordermap, layout::MmPoint};
 mod input;
 mod layout;
 
-const FONT: &[u8] = include_bytes!("../assets/JetBrainsMono-Regular.ttf");
+const FONT: &[u8] = include_bytes!("../assets/font/JetBrainsMono-Regular.ttf");
 
 fn main() {
     let data = input::load_input();
